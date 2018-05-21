@@ -120,7 +120,7 @@ public class GPSTracker extends Service implements LocationListener {
         return location;
     }
 
-    private boolean checkChanges() {
+    public boolean checkChanges() {
 
         return true;
     }
