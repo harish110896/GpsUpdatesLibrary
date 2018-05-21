@@ -120,6 +120,12 @@ public class GPSTracker extends Service implements LocationListener {
         return location;
     }
 
+    private boolean checkChanges() {
+
+        return true;
+    }
+
+
     /**
      * Stop using GPS listener
      * Calling this function will stop using GPS in your app
