@@ -65,8 +65,6 @@ public class GPSTracker extends Service implements LocationListener {
                 this.canGetLocation = true;
                 // First get location from Network Provider
                 if (isNetworkEnabled) {
-                    if(checkPermission())
-                    {
 
                         locationManager.requestLocationUpdates(
                                 LocationManager.NETWORK_PROVIDER,
@@ -84,14 +82,11 @@ public class GPSTracker extends Service implements LocationListener {
                             }
                         }
 
-                    }
                 }
 
                 // if GPS Enabled get lat/long using GPS Services
                 if (isGPSEnabled) {
                     if (location == null) {
-                        if(checkPermission())
-                        {
                             locationManager.requestLocationUpdates(
                                     LocationManager.GPS_PROVIDER,
                                     MIN_TIME_BW_UPDATES,
@@ -107,8 +102,6 @@ public class GPSTracker extends Service implements LocationListener {
                                     longitude = location.getLongitude();
                                 }
                             }
-                        }
-
                     }
                 }
             }
