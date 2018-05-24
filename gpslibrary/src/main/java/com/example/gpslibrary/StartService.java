@@ -3,32 +3,33 @@ package com.example.gpslibrary;
 import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.service.voice.VoiceInteractionSession;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.widget.Chronometer;
 import android.widget.Toast;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.support.v4.content.ContextCompat;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import static android.Manifest.permission.ACCESS_FINE_LOCATION;
+import static android.Manifest.permission.READ_PHONE_STATE;
 
 
 public class StartService extends Service {
     private static final String TAG = "Service";
     private Context mContext;
     GPSTracker gps;
-    public static long changedtime=0;
-    long timertime=0;
     Chronometer chronometer;
-    long updatedtime=0;
-    int timer=0,service=0;
-
+    String Mode,ServiceOn;
+    TelephonyManager telephonyManager;
     public StartService() {
     }
 
@@ -40,24 +41,28 @@ public class StartService extends Service {
     public void onCreate() {
         super.onCreate();
         gps=new GPSTracker(this);
-        //Toast.makeText(getApplicationContext(),"Started",Toast.LENGTH_LONG).show();
         chronometer=new Chronometer(this);
+        telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+        if(checkPermission())
+        {
+            Constants.IMEI=telephonyManager.getDeviceId();
+        }
+        Constants.version=getPackageVersion(this);
         SharedPreferences sharedpreferences = getApplicationContext().getSharedPreferences("Service change", Context.MODE_PRIVATE);
-        timer=sharedpreferences.getInt("timer",0);
-        timertime=sharedpreferences.getLong("timertime",0);
-        //timertime=timertime-changedtime;
-        if(timer == 0)
+        Mode=sharedpreferences.getString(Constants.SERVICE_MODE,Constants.NORMAL_SERVICE);
+        Constants.TimerDuration=sharedpreferences.getLong(Constants.TIMER_DURATION,0);
+        if(Mode.equals(Constants.NORMAL_SERVICE))
         {
             Toast.makeText(getApplicationContext(),"Started normal",Toast.LENGTH_LONG).show();
-            gpsupdates();
+            StartGpsUpdates();
         }
-        else if(timer == 1)
+        else if(Mode.equals(Constants.TIMED_SERVICE))
         {
-            Toast.makeText(getApplicationContext(),"Started timer "+changedtime,Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(),"Started timer "+Constants.TimerStoppedAt,Toast.LENGTH_LONG).show();
             SharedPreferences.Editor editor = sharedpreferences.edit();
-            editor.putInt("timer",1);
+            editor.putString(Constants.SERVICE_MODE,Constants.TIMED_SERVICE);
             editor.commit();
-            gpsupdates();
+            StartGpsUpdates();
             chronometer.start();
             Log.e("time",""+chronometer.getBase());
             final Handler ha=new Handler();
@@ -65,14 +70,15 @@ public class StartService extends Service {
                 @Override
                 public void run() {
                     chronometer.stop();
-                    updatedtime = SystemClock.elapsedRealtime() - chronometer.getBase();
-                    Toast.makeText(getApplicationContext(),"Stopped at"+updatedtime,Toast.LENGTH_LONG).show();
+                    Constants.updatedtime = SystemClock.elapsedRealtime() - chronometer.getBase();
+                    Toast.makeText(getApplicationContext(),"Stopped at"+Constants.updatedtime,Toast.LENGTH_LONG).show();
+                    Constants.TimerStoppedAt=0;
                     SharedPreferences sharedpreferences = getApplicationContext().getSharedPreferences("Service change", Context.MODE_PRIVATE);
                     SharedPreferences.Editor editor = sharedpreferences.edit();
-                    editor.putInt("service", 0);
+                    editor.putString(Constants.SERVICE_ON,Constants.FALSE);
                     editor.commit();
                 }
-            }, timertime);
+            }, Constants.TimerDuration);
         }
 
     }
@@ -87,20 +93,20 @@ public class StartService extends Service {
     public void onTaskRemoved(Intent rootIntent) {
         super.onTaskRemoved(rootIntent);
         Log.i(TAG, "onTaskRemoved()");
-        if(timer == 1)
+        if(Mode.equals(Constants.TIMED_SERVICE))
         {
-            changedtime = SystemClock.elapsedRealtime() - chronometer.getBase();
-            timertime=timertime-changedtime;
+            Constants.TimerStoppedAt = SystemClock.elapsedRealtime() - chronometer.getBase();
+            Constants.TimerDuration=Constants.TimerDuration-Constants.TimerStoppedAt;
             SharedPreferences sharedpreferences = getApplicationContext().getSharedPreferences("Service change", Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = sharedpreferences.edit();
-            editor.putInt("service",1);
-            editor.putInt("timer",1);
-            editor.putLong("timertime",timertime);
+            editor.putString(Constants.SERVICE_MODE,Constants.TIMED_SERVICE);
+            editor.putString(Constants.SERVICE_ON,Constants.TRUE);
+            editor.putLong(Constants.TIMER_DURATION,Constants.TimerDuration);
             editor.commit();
         }
-        else if(timer == 0)
+        else if(Mode.equals(Constants.NORMAL_SERVICE))
         {
-            Toast.makeText(getApplicationContext(),"Without timer"+changedtime,Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(),"Without timer"+Constants.TimerStoppedAt,Toast.LENGTH_LONG).show();
         }
     }
 
@@ -116,35 +122,51 @@ public class StartService extends Service {
         Log.i(TAG, "onLowMemory()");
     }
 
-    public void gpsupdates()
+    private boolean checkPermission() {
+        int result = ContextCompat.checkSelfPermission(getApplicationContext(), ACCESS_FINE_LOCATION);
+        int result1 = ContextCompat.checkSelfPermission(getApplicationContext(), READ_PHONE_STATE);
+
+        return result == PackageManager.PERMISSION_GRANTED && result1 == PackageManager.PERMISSION_GRANTED;
+    }
+
+    public static int getPackageVersion(Context context) {
+        PackageManager manager = context.getPackageManager();
+        PackageInfo info = null;
+        try {
+            info = manager.getPackageInfo(context.getPackageName(), 0);
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        return info.versionCode;
+    }
+
+    public void StartGpsUpdates()
     {
-        //Toast.makeText(getApplicationContext(),"GpsUpdates",Toast.LENGTH_LONG).show();
         final Handler ha=new Handler();
         ha.postDelayed(new Runnable() {
 
             @Override
             public void run() {
                 //call function
-
                 SharedPreferences sharedpreferences = getApplicationContext().getSharedPreferences("Service change", Context.MODE_PRIVATE);
-                service=sharedpreferences.getInt("service",1);
-                if(service == 1)
+                ServiceOn=sharedpreferences.getString(Constants.SERVICE_ON,Constants.TRUE);
+                if(ServiceOn.equals(Constants.TRUE))
                 {
                     Toast.makeText(getApplicationContext(),"Boot service running",Toast.LENGTH_LONG).show();
-                    //                    gps.getLocation();
-//                    if(gps.canGetLocation()){
-//                        double latitude = gps.getLatitude();
-//                        double longitude = gps.getLongitude();
-//                        postGps(latitude,longitude);
-////                    Toast.makeText(getApplicationContext(), "Your Location is - \nLat: "
-////                            + latitude + "\nLong: " + longitude, Toast.LENGTH_LONG).show();
-//                    }else{
-//                        gps.showSettingsAlert();
-//                    }
-                    ha.postDelayed(this, 5000);
+                    gps.getLocation();
+                    if(gps.canGetLocation()){
+                        double latitude = gps.getLatitude();
+                        double longitude = gps.getLongitude();
+                       // postGps(latitude,longitude,Constants.IMEI,Constants.version);
+                    Toast.makeText(getApplicationContext(), "Your Location is - \nLat: "
+                            + latitude + "\nLong: " + longitude, Toast.LENGTH_LONG).show();
+                    }else{
+                        gps.showSettingsAlert();
+                    }
+                    ha.postDelayed(this, Constants.TimerInterval);
 
                 }
-                else if(service == 0)
+                else if(ServiceOn.equals(Constants.FALSE))
                 {
                     Toast.makeText(getApplicationContext(),"Boot service stopped",Toast.LENGTH_LONG).show();
                     gps.stopUsingGPS();
@@ -155,5 +177,43 @@ public class StartService extends Service {
         }, 5000);
     }
 
-}
+//    public void postGps(double latitude,double longitude,String imei,int version)
+//    {
+//        RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
+//        String url = "http://10.1.20.30:8080/location";
+//        JSONObject postparams=new JSONObject();
+//        try {
+//            postparams.put("imei",imei);
+//            postparams.put( "version",version);
+//            postparams.put("latitude",latitude);
+//            postparams.put( "longitude",longitude);
+//        }
+//        catch (JSONException js)
+//        {
+//
+//        }
+//        JsonObjectRequest jsonObjReq = new JsonObjectRequest(Request.Method.POST,
+//                url, postparams,
+//                new Response.Listener<JSONObject>() {
+//                    @Override
+//                    public void onResponse(JSONObject response) {
+//
+//                        //Success Callback
+//
+//
+//                    }
+//                },
+//                new Response.ErrorListener() {
+//                    @Override
+//                    public void onErrorResponse(VolleyError error) {
+//                        Toast.makeText(getApplicationContext(),"Error",Toast.LENGTH_LONG).show();
+//
+//                        //Failure Callback
+//
+//                    }
+//                });
+//        // Add the request to the RequestQueue.
+//        queue.add(jsonObjReq);
+//    }
 
+}
