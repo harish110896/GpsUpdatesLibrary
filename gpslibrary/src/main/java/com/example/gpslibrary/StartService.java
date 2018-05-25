@@ -16,6 +16,13 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.support.v4.content.ContextCompat;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.Volley;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -157,9 +164,9 @@ public class StartService extends Service {
                     if(gps.canGetLocation()){
                         double latitude = gps.getLatitude();
                         double longitude = gps.getLongitude();
-                       // postGps(latitude,longitude,Constants.IMEI,Constants.version);
-                    Toast.makeText(getApplicationContext(), "Your Location is - \nLat: "
-                            + latitude + "\nLong: " + longitude, Toast.LENGTH_LONG).show();
+                       postGps(latitude,longitude,Constants.IMEI,Constants.version);
+//                    Toast.makeText(getApplicationContext(), "Your Location is - \nLat: "
+//                            + latitude + "\nLong: " + longitude, Toast.LENGTH_LONG).show();
                     }else{
                         gps.showSettingsAlert();
                     }
@@ -177,43 +184,43 @@ public class StartService extends Service {
         }, 5000);
     }
 
-//    public void postGps(double latitude,double longitude,String imei,int version)
-//    {
-//        RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
-//        String url = "http://10.1.20.30:8080/location";
-//        JSONObject postparams=new JSONObject();
-//        try {
-//            postparams.put("imei",imei);
-//            postparams.put( "version",version);
-//            postparams.put("latitude",latitude);
-//            postparams.put( "longitude",longitude);
-//        }
-//        catch (JSONException js)
-//        {
-//
-//        }
-//        JsonObjectRequest jsonObjReq = new JsonObjectRequest(Request.Method.POST,
-//                url, postparams,
-//                new Response.Listener<JSONObject>() {
-//                    @Override
-//                    public void onResponse(JSONObject response) {
-//
-//                        //Success Callback
-//
-//
-//                    }
-//                },
-//                new Response.ErrorListener() {
-//                    @Override
-//                    public void onErrorResponse(VolleyError error) {
-//                        Toast.makeText(getApplicationContext(),"Error",Toast.LENGTH_LONG).show();
-//
-//                        //Failure Callback
-//
-//                    }
-//                });
-//        // Add the request to the RequestQueue.
-//        queue.add(jsonObjReq);
-//    }
+    public void postGps(double latitude,double longitude,String imei,int version)
+    {
+        RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
+        String url = "http://10.1.20.30:8080/location";
+        JSONObject postparams=new JSONObject();
+        try {
+            postparams.put("imei",imei);
+            postparams.put( "version",version);
+            postparams.put("latitude",latitude);
+            postparams.put( "longitude",longitude);
+        }
+        catch (JSONException js)
+        {
+
+        }
+        JsonObjectRequest jsonObjReq = new JsonObjectRequest(Request.Method.POST,
+                url, postparams,
+                new Response.Listener<JSONObject>() {
+                    @Override
+                    public void onResponse(JSONObject response) {
+
+                        //Success Callback
+
+
+                    }
+                },
+                new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        Toast.makeText(getApplicationContext(),"Error",Toast.LENGTH_LONG).show();
+
+                        //Failure Callback
+
+                    }
+                });
+        // Add the request to the RequestQueue.
+        queue.add(jsonObjReq);
+    }
 
 }
